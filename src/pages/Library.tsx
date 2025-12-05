@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { List, LayoutGrid, Search, ChevronDown, Heart } from 'lucide-react';
+import { Plus, List, LayoutGrid, Search, ChevronDown, Heart, Music } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useLocalPlaylists } from '@/contexts/PlaylistContext';
 import { useFeaturedPlaylists, useNewReleases, useRecommendations } from '@/hooks/useSpotify';
 import PlaylistCard from '@/components/epstify/PlaylistCard';
+import TrackCard from '@/components/epstify/TrackCard';
+import CreatePlaylistModal from '@/components/epstify/CreatePlaylistModal';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   DropdownMenu,
@@ -22,8 +25,10 @@ const Library: React.FC = () => {
   const [viewType, setViewType] = useState<ViewType>('grid');
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
+  const [createPlaylistOpen, setCreatePlaylistOpen] = useState(false);
 
-  const { data: playlists, isLoading: loadingPlaylists } = useFeaturedPlaylists();
+  const { localPlaylists, likedSongs } = useLocalPlaylists();
+  const { data: featuredPlaylists, isLoading: loadingPlaylists } = useFeaturedPlaylists();
   const { data: albums, isLoading: loadingAlbums } = useNewReleases();
   const { data: tracks, isLoading: loadingTracks } = useRecommendations();
 
@@ -59,7 +64,13 @@ const Library: React.FC = () => {
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Browse Library</h1>
+        <h1 className="text-2xl font-bold">Your Library</h1>
+        <button
+          onClick={() => setCreatePlaylistOpen(true)}
+          className="w-8 h-8 rounded-full hover:bg-hover-highlight flex items-center justify-center transition-colors"
+        >
+          <Plus className="w-5 h-5" />
+        </button>
       </div>
 
       {/* Filter Pills */}
@@ -92,7 +103,7 @@ const Library: React.FC = () => {
           {showSearch && (
             <input
               type="text"
-              placeholder="Search in library"
+              placeholder="Search in Your Library"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="bg-transparent border-b border-muted-foreground focus:border-foreground outline-none text-sm py-1 px-2 w-48 transition-colors"
@@ -148,16 +159,12 @@ const Library: React.FC = () => {
         </div>
       </div>
 
-      {/* Content */}
+      {/* Your Playlists */}
       {(activeFilter === null || activeFilter === 'playlists') && (
         <section>
-          {activeFilter !== 'playlists' && (
-            <h2 className="text-lg font-semibold mb-4">Featured Playlists</h2>
-          )}
+          <h2 className="text-lg font-semibold mb-4">Your Playlists</h2>
           
-          {loadingPlaylists ? (
-            <LoadingSkeleton />
-          ) : viewType === 'grid' ? (
+          {viewType === 'grid' ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
               {/* Liked Songs Card */}
               <Link
@@ -176,12 +183,40 @@ const Library: React.FC = () => {
                 </div>
                 <h3 className="font-semibold truncate mb-1">Liked Songs</h3>
                 <p className="text-sm text-foreground/80 truncate">
-                  Your favorites
+                  {likedSongs.length} songs
                 </p>
               </Link>
 
-              {playlists?.map((playlist) => (
-                <PlaylistCard key={playlist.id} playlist={playlist} />
+              {/* Local Playlists */}
+              {localPlaylists.map((playlist) => (
+                <Link
+                  key={playlist.id}
+                  to={`/local-playlist/${playlist.id}`}
+                  className="p-4 bg-card rounded-lg transition-all duration-300 hover:bg-hover-highlight group card-hover block"
+                >
+                  <div className="relative mb-4">
+                    {playlist.coverUrl !== '/placeholder.svg' ? (
+                      <img
+                        src={playlist.coverUrl}
+                        alt={playlist.name}
+                        className="w-full aspect-square object-cover rounded-md shadow-lg"
+                      />
+                    ) : (
+                      <div className="w-full aspect-square rounded-md shadow-lg bg-muted flex items-center justify-center">
+                        <Music className="w-16 h-16 text-muted-foreground" />
+                      </div>
+                    )}
+                    <button className="play-button-overlay shadow-xl">
+                      <svg className="w-6 h-6 text-accent-foreground fill-current ml-1" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    </button>
+                  </div>
+                  <h3 className="font-semibold truncate mb-1">{playlist.name}</h3>
+                  <p className="text-sm text-muted-foreground truncate">
+                    {playlist.tracks.length} songs
+                  </p>
+                </Link>
               ))}
             </div>
           ) : (
@@ -196,25 +231,31 @@ const Library: React.FC = () => {
                 <div>
                   <p className="font-medium">Liked Songs</p>
                   <p className="text-sm text-muted-foreground">
-                    Playlist • Your favorites
+                    Playlist • {likedSongs.length} songs
                   </p>
                 </div>
               </Link>
-              {playlists?.map((playlist) => (
+              {localPlaylists.map((playlist) => (
                 <Link
                   key={playlist.id}
-                  to={`/playlist/${playlist.id}`}
+                  to={`/local-playlist/${playlist.id}`}
                   className="flex items-center gap-3 p-2 rounded-md hover:bg-hover-highlight transition-colors"
                 >
-                  <img
-                    src={playlist.coverUrl}
-                    alt={playlist.name}
-                    className="w-12 h-12 rounded object-cover"
-                  />
+                  {playlist.coverUrl !== '/placeholder.svg' ? (
+                    <img
+                      src={playlist.coverUrl}
+                      alt={playlist.name}
+                      className="w-12 h-12 rounded object-cover"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded bg-muted flex items-center justify-center">
+                      <Music className="w-5 h-5 text-muted-foreground" />
+                    </div>
+                  )}
                   <div>
                     <p className="font-medium">{playlist.name}</p>
                     <p className="text-sm text-muted-foreground">
-                      Playlist • {playlist.owner}
+                      Playlist • {playlist.tracks.length} songs
                     </p>
                   </div>
                 </Link>
@@ -224,11 +265,26 @@ const Library: React.FC = () => {
         </section>
       )}
 
+      {/* Featured Playlists */}
+      {(activeFilter === null || activeFilter === 'playlists') && (
+        <section>
+          <h2 className="text-lg font-semibold mb-4">Featured Playlists</h2>
+          {loadingPlaylists ? (
+            <LoadingSkeleton />
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+              {featuredPlaylists?.map((playlist) => (
+                <PlaylistCard key={playlist.id} playlist={playlist} />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Albums */}
       {(activeFilter === null || activeFilter === 'albums') && (
         <section>
-          {activeFilter !== 'albums' && (
-            <h2 className="text-lg font-semibold mb-4">New Releases</h2>
-          )}
+          <h2 className="text-lg font-semibold mb-4">New Releases</h2>
           {loadingAlbums ? (
             <LoadingSkeleton />
           ) : (
@@ -284,11 +340,10 @@ const Library: React.FC = () => {
         </section>
       )}
 
+      {/* Tracks */}
       {(activeFilter === null || activeFilter === 'tracks') && (
         <section>
-          {activeFilter !== 'tracks' && (
-            <h2 className="text-lg font-semibold mb-4">Recommended Tracks</h2>
-          )}
+          <h2 className="text-lg font-semibold mb-4">Recommended Tracks</h2>
           {loadingTracks ? (
             <LoadingSkeleton />
           ) : (
@@ -297,50 +352,18 @@ const Library: React.FC = () => {
                 ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4'
                 : 'space-y-2'
             )}>
-              {tracks?.map((track) =>
-                viewType === 'grid' ? (
-                  <div
-                    key={track.id}
-                    className="p-4 bg-card rounded-lg transition-all duration-300 hover:bg-hover-highlight group card-hover cursor-pointer"
-                  >
-                    <div className="relative mb-4">
-                      <img
-                        src={track.coverUrl}
-                        alt={track.title}
-                        className="w-full aspect-square object-cover rounded-md shadow-lg"
-                      />
-                      <button className="play-button-overlay shadow-xl">
-                        <svg className="w-6 h-6 text-accent-foreground fill-current ml-1" viewBox="0 0 24 24">
-                          <path d="M8 5v14l11-7z" />
-                        </svg>
-                      </button>
-                    </div>
-                    <h3 className="font-semibold truncate mb-1">{track.title}</h3>
-                    <p className="text-sm text-muted-foreground truncate">{track.artist}</p>
-                  </div>
-                ) : (
-                  <div
-                    key={track.id}
-                    className="flex items-center gap-3 p-2 rounded-md hover:bg-hover-highlight transition-colors cursor-pointer"
-                  >
-                    <img
-                      src={track.coverUrl}
-                      alt={track.title}
-                      className="w-12 h-12 rounded object-cover"
-                    />
-                    <div>
-                      <p className="font-medium">{track.title}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {track.artist}
-                      </p>
-                    </div>
-                  </div>
-                )
-              )}
+              {tracks?.map((track) => (
+                <TrackCard key={track.id} track={track} variant={viewType === 'grid' ? 'card' : 'row'} />
+              ))}
             </div>
           )}
         </section>
       )}
+
+      <CreatePlaylistModal
+        open={createPlaylistOpen}
+        onOpenChange={setCreatePlaylistOpen}
+      />
     </div>
   );
 };
