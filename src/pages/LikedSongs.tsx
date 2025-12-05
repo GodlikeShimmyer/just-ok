@@ -1,52 +1,35 @@
 import React, { useState } from 'react';
-import { Play, Pause, Heart, Clock, Search, ChevronDown } from 'lucide-react';
+import { Play, Pause, Heart, Clock, Search, Shuffle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { mockTracks } from '@/data/mockData';
+import { useLocalPlaylists } from '@/contexts/PlaylistContext';
 import { usePlayer } from '@/contexts/PlayerContext';
 import TrackCard from '@/components/epstify/TrackCard';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-
-type SortType = 'title' | 'artist' | 'album' | 'duration' | 'added';
 
 const LikedSongs: React.FC = () => {
-  const { currentTrack, isPlaying, playTrack, togglePlay } = usePlayer();
+  const { currentTrack, isPlaying, playTrack, togglePlay, shuffle, toggleShuffle } = usePlayer();
+  const { likedSongs } = useLocalPlaylists();
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
-  const [sortBy, setSortBy] = useState<SortType>('added');
 
-  const likedTracks = mockTracks.filter((t) => t.isLiked);
-  const isPlaylistPlaying = likedTracks.some((t) => t.id === currentTrack?.id) && isPlaying;
+  const isPlaylistPlaying = likedSongs.some((t) => t.id === currentTrack?.id) && isPlaying;
 
   const handlePlayAll = () => {
-    if (likedTracks.length === 0) return;
+    if (likedSongs.length === 0) return;
 
     if (isPlaylistPlaying) {
       togglePlay();
     } else {
-      playTrack(likedTracks[0]);
+      playTrack(likedSongs[0]);
     }
   };
 
-  const sortOptions: { id: SortType; label: string }[] = [
-    { id: 'title', label: 'Title' },
-    { id: 'artist', label: 'Artist' },
-    { id: 'album', label: 'Album' },
-    { id: 'duration', label: 'Duration' },
-    { id: 'added', label: 'Date added' },
-  ];
-
-  const filteredTracks = likedTracks.filter(
+  const filteredTracks = likedSongs.filter(
     (t) =>
       t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       t.artist.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const totalDuration = likedTracks.reduce((acc, t) => acc + t.duration, 0);
+  const totalDuration = likedSongs.reduce((acc, t) => acc + t.duration, 0);
   const formatDuration = (seconds: number): string => {
     const hours = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
@@ -70,7 +53,7 @@ const LikedSongs: React.FC = () => {
             <span className="font-semibold">You</span>
             <span className="text-muted-foreground">•</span>
             <span className="text-muted-foreground">
-              {likedTracks.length} songs, {formatDuration(totalDuration)}
+              {likedSongs.length} songs, {formatDuration(totalDuration)}
             </span>
           </div>
         </div>
@@ -80,13 +63,24 @@ const LikedSongs: React.FC = () => {
       <div className="flex items-center gap-4 mb-6">
         <button
           onClick={handlePlayAll}
-          className="w-14 h-14 rounded-full bg-accent flex items-center justify-center hover:scale-105 transition-transform shadow-lg"
+          disabled={likedSongs.length === 0}
+          className="w-14 h-14 rounded-full bg-accent flex items-center justify-center hover:scale-105 transition-transform shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isPlaylistPlaying ? (
             <Pause className="w-6 h-6 text-accent-foreground fill-current" />
           ) : (
             <Play className="w-6 h-6 text-accent-foreground fill-current ml-1" />
           )}
+        </button>
+
+        <button
+          onClick={toggleShuffle}
+          className={cn(
+            'p-3 transition-colors',
+            shuffle ? 'text-accent' : 'text-muted-foreground hover:text-foreground'
+          )}
+        >
+          <Shuffle className="w-6 h-6" />
         </button>
 
         <div className="ml-auto flex items-center gap-4">
@@ -106,66 +100,45 @@ const LikedSongs: React.FC = () => {
               autoFocus
             />
           )}
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
-                {sortOptions.find((s) => s.id === sortBy)?.label}
-                <ChevronDown className="w-4 h-4" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="bg-card border-border">
-              {sortOptions.map((option) => (
-                <DropdownMenuItem
-                  key={option.id}
-                  onClick={() => setSortBy(option.id)}
-                  className={cn(
-                    'cursor-pointer',
-                    sortBy === option.id && 'text-accent'
-                  )}
-                >
-                  {option.label}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
       </div>
 
-      {/* Track List Header */}
-      <div className="grid grid-cols-[16px_4fr_2fr_1fr] gap-4 px-4 py-2 text-sm text-muted-foreground border-b border-border mb-2">
-        <span>#</span>
-        <span>Title</span>
-        <span>Album</span>
-        <span className="flex justify-end">
-          <Clock className="w-4 h-4" />
-        </span>
-      </div>
+      {likedSongs.length > 0 ? (
+        <>
+          {/* Track List Header */}
+          <div className="grid grid-cols-[16px_4fr_2fr_1fr] gap-4 px-4 py-2 text-sm text-muted-foreground border-b border-border mb-2">
+            <span>#</span>
+            <span>Title</span>
+            <span>Album</span>
+            <span className="flex justify-end">
+              <Clock className="w-4 h-4" />
+            </span>
+          </div>
 
-      {/* Tracks */}
-      <div className="space-y-1">
-        {filteredTracks.map((track, index) => (
-          <TrackCard
-            key={track.id}
-            track={track}
-            variant="row"
-            index={index + 1}
-          />
-        ))}
-      </div>
+          {/* Tracks */}
+          <div className="space-y-1">
+            {filteredTracks.map((track, index) => (
+              <TrackCard
+                key={track.id}
+                track={track}
+                variant="row"
+                index={index + 1}
+              />
+            ))}
+          </div>
 
-      {filteredTracks.length === 0 && likedTracks.length > 0 && (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">No tracks match your search</p>
-        </div>
-      )}
-
-      {likedTracks.length === 0 && (
+          {filteredTracks.length === 0 && (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">No tracks match your search</p>
+            </div>
+          )}
+        </>
+      ) : (
         <div className="text-center py-20">
           <Heart className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
           <h2 className="text-2xl font-bold mb-2">Songs you like will appear here</h2>
           <p className="text-muted-foreground">
-            Save songs by tapping the heart icon.
+            Save songs by right-clicking and selecting "Save to Liked Songs".
           </p>
         </div>
       )}

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { 
   Play, 
   Pause, 
@@ -19,7 +20,9 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePlayer } from '@/contexts/PlayerContext';
+import { useLocalPlaylists } from '@/contexts/PlaylistContext';
 import { Slider } from '@/components/ui/slider';
+import { toast } from 'sonner';
 
 const formatTime = (seconds: number): string => {
   const mins = Math.floor(seconds / 60);
@@ -43,13 +46,46 @@ const Player: React.FC = () => {
     setVolume,
     toggleShuffle,
     toggleRepeat,
-    toggleLike,
   } = usePlayer();
 
-  const [showQueue, setShowQueue] = useState(false);
+  const { toggleLikedSong, isLiked } = useLocalPlaylists();
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      if (e.code === 'Space' && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        togglePlay();
+      } else if (e.code === 'ArrowRight' && e.ctrlKey) {
+        e.preventDefault();
+        nextTrack();
+      } else if (e.code === 'ArrowLeft' && e.ctrlKey) {
+        e.preventDefault();
+        prevTrack();
+      } else if (e.code === 'KeyS' && e.ctrlKey) {
+        e.preventDefault();
+        toggleShuffle();
+      } else if (e.code === 'KeyR' && e.ctrlKey) {
+        e.preventDefault();
+        toggleRepeat();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [togglePlay, nextTrack, prevTrack, toggleShuffle, toggleRepeat]);
 
   const VolumeIcon = volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
   const RepeatIcon = repeat === 'one' ? Repeat1 : Repeat;
+
+  const handleToggleLike = () => {
+    if (!currentTrack) return;
+    toggleLikedSong(currentTrack);
+    toast.success(isLiked(currentTrack.id) ? 'Removed from Liked Songs' : 'Added to Liked Songs');
+  };
 
   if (!currentTrack) {
     return (
@@ -58,6 +94,8 @@ const Player: React.FC = () => {
       </footer>
     );
   }
+
+  const liked = isLiked(currentTrack.id);
 
   return (
     <footer className="h-[90px] bg-player border-t border-border px-4 grid grid-cols-3 items-center">
@@ -77,16 +115,16 @@ const Player: React.FC = () => {
           </p>
         </div>
         <button
-          onClick={() => toggleLike(currentTrack.id)}
+          onClick={handleToggleLike}
           className={cn(
             'p-1 transition-all hover:scale-110',
-            currentTrack.isLiked ? 'text-accent' : 'text-muted-foreground hover:text-foreground'
+            liked ? 'text-accent' : 'text-muted-foreground hover:text-foreground'
           )}
         >
           <Heart 
             className={cn(
               'w-4 h-4 transition-all',
-              currentTrack.isLiked && 'fill-accent like-animation'
+              liked && 'fill-accent like-animation'
             )} 
           />
         </button>
@@ -157,7 +195,7 @@ const Player: React.FC = () => {
           <div className="flex-1 group">
             <Slider
               value={[progress]}
-              max={duration}
+              max={duration || 1}
               step={1}
               onValueChange={([value]) => seekTo(value)}
               className="cursor-pointer"
@@ -175,15 +213,12 @@ const Player: React.FC = () => {
           <Mic2 className="w-4 h-4" />
         </button>
         
-        <button
-          onClick={() => setShowQueue(!showQueue)}
-          className={cn(
-            'p-2 transition-colors',
-            showQueue ? 'text-accent' : 'text-muted-foreground hover:text-foreground'
-          )}
+        <Link
+          to="/queue"
+          className="p-2 text-muted-foreground hover:text-foreground transition-colors"
         >
           <ListMusic className="w-4 h-4" />
-        </button>
+        </Link>
         
         <button className="p-2 text-muted-foreground hover:text-foreground transition-colors">
           <MonitorSpeaker className="w-4 h-4" />
