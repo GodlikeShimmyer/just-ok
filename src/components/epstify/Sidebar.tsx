@@ -8,17 +8,19 @@ import {
   Heart, 
   Download,
   ChevronRight,
-  Music2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Logo from './Logo';
-import { mockPlaylists } from '@/data/mockData';
+import { useFeaturedPlaylists } from '@/hooks/useSpotify';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const Sidebar: React.FC = () => {
   const location = useLocation();
   const [libraryExpanded, setLibraryExpanded] = useState(true);
   const [downloadEnabled, setDownloadEnabled] = useState(false);
+
+  const { data: playlists, isLoading } = useFeaturedPlaylists();
 
   const navItems = [
     { icon: Home, label: 'Home', path: '/' },
@@ -68,7 +70,7 @@ const Sidebar: React.FC = () => {
           >
             <div className="flex items-center gap-3">
               <Library className="w-6 h-6 transition-transform group-hover:scale-110" />
-              <span className="font-semibold">Your Library</span>
+              <span className="font-semibold">Browse</span>
             </div>
             <ChevronRight 
               className={cn(
@@ -84,11 +86,11 @@ const Sidebar: React.FC = () => {
             {/* Action buttons */}
             <div className="px-4 pb-3 flex gap-2">
               <Link
-                to="/playlist/new"
+                to="/library"
                 className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-full text-sm hover:bg-hover-highlight transition-colors"
               >
                 <Plus className="w-4 h-4" />
-                <span>Create</span>
+                <span>Explore</span>
               </Link>
               <button
                 onClick={() => setDownloadEnabled(!downloadEnabled)}
@@ -119,34 +121,46 @@ const Sidebar: React.FC = () => {
                   <div className="min-w-0">
                     <p className="font-medium truncate text-sm">Liked Songs</p>
                     <p className="text-xs text-muted-foreground truncate">
-                      Playlist • {mockPlaylists[0].tracks.length} songs
+                      Playlist • Your favorites
                     </p>
                   </div>
                 </Link>
 
-                {/* User Playlists */}
-                {mockPlaylists.slice(1).map((playlist) => (
-                  <Link
-                    key={playlist.id}
-                    to={`/playlist/${playlist.id}`}
-                    className={cn(
-                      'flex items-center gap-3 p-2 rounded-md transition-all hover:bg-hover-highlight group',
-                      isActive(`/playlist/${playlist.id}`) && 'bg-hover-highlight'
-                    )}
-                  >
-                    <img
-                      src={playlist.coverUrl}
-                      alt={playlist.name}
-                      className="w-12 h-12 rounded object-cover flex-shrink-0"
-                    />
-                    <div className="min-w-0">
-                      <p className="font-medium truncate text-sm">{playlist.name}</p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        Playlist • {playlist.owner}
-                      </p>
+                {/* Featured Playlists */}
+                {isLoading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i} className="flex items-center gap-3 p-2">
+                      <Skeleton className="w-12 h-12 rounded flex-shrink-0" />
+                      <div className="flex-1">
+                        <Skeleton className="h-4 w-3/4 mb-1" />
+                        <Skeleton className="h-3 w-1/2" />
+                      </div>
                     </div>
-                  </Link>
-                ))}
+                  ))
+                ) : (
+                  playlists?.slice(0, 10).map((playlist) => (
+                    <Link
+                      key={playlist.id}
+                      to={`/playlist/${playlist.id}`}
+                      className={cn(
+                        'flex items-center gap-3 p-2 rounded-md transition-all hover:bg-hover-highlight group',
+                        isActive(`/playlist/${playlist.id}`) && 'bg-hover-highlight'
+                      )}
+                    >
+                      <img
+                        src={playlist.coverUrl}
+                        alt={playlist.name}
+                        className="w-12 h-12 rounded object-cover flex-shrink-0"
+                      />
+                      <div className="min-w-0">
+                        <p className="font-medium truncate text-sm">{playlist.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          Playlist • {playlist.owner}
+                        </p>
+                      </div>
+                    </Link>
+                  ))
+                )}
               </div>
             </ScrollArea>
           </>

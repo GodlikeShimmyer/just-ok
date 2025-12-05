@@ -2,18 +2,36 @@ import React from 'react';
 import { useParams } from 'react-router-dom';
 import { Play, Pause, Shuffle, BadgeCheck, UserPlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { mockArtists, mockAlbums } from '@/data/mockData';
+import { useArtist } from '@/hooks/useSpotify';
 import { usePlayer } from '@/contexts/PlayerContext';
 import TrackCard from '@/components/epstify/TrackCard';
-import ArtistCard from '@/components/epstify/ArtistCard';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const ArtistPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { currentTrack, isPlaying, playTrack, togglePlay, shuffle, toggleShuffle } = usePlayer();
 
-  const artist = mockArtists.find((a) => a.id === id);
+  const { data: artist, isLoading, error } = useArtist(id);
 
-  if (!artist) {
+  if (isLoading) {
+    return (
+      <div className="animate-fade-in -mx-6 -mt-6">
+        <div className="relative h-80 bg-gradient-to-b from-muted to-background flex items-end p-8">
+          <div className="absolute bottom-8 left-8">
+            <Skeleton className="h-16 w-64 mb-4" />
+            <Skeleton className="h-4 w-40" />
+          </div>
+        </div>
+        <div className="p-6 space-y-4">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-14 w-full" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !artist) {
     return (
       <div className="flex items-center justify-center h-64">
         <p className="text-muted-foreground">Artist not found</p>
@@ -38,13 +56,10 @@ const ArtistPage: React.FC = () => {
       return `${(num / 1000000).toFixed(1)} million`;
     }
     if (num >= 1000) {
-      return `${(num / 1000).toFixed(0)},000`;
+      return `${Math.floor(num / 1000)},${String(num % 1000).padStart(3, '0')}`;
     }
     return num.toLocaleString();
   };
-
-  const artistAlbums = mockAlbums.filter((a) => a.artistId === artist.id);
-  const otherArtists = mockArtists.filter((a) => a.id !== artist.id);
 
   return (
     <div className="animate-fade-in -mx-6 -mt-6">
@@ -66,8 +81,13 @@ const ArtistPage: React.FC = () => {
         <div className="absolute bottom-8 left-8">
           <h1 className="text-7xl font-black mb-4">{artist.name}</h1>
           <p className="text-muted-foreground">
-            {formatListeners(artist.monthlyListeners)} monthly listeners
+            {formatListeners(artist.monthlyListeners)} followers
           </p>
+          {artist.genres.length > 0 && (
+            <p className="text-sm text-muted-foreground mt-1">
+              {artist.genres.slice(0, 3).join(' • ')}
+            </p>
+          )}
         </div>
       </div>
 
@@ -101,26 +121,28 @@ const ArtistPage: React.FC = () => {
       </div>
 
       {/* Popular Tracks */}
-      <section className="px-6 mb-8">
-        <h2 className="text-2xl font-bold mb-4">Popular</h2>
-        <div className="space-y-1">
-          {artist.topTracks.slice(0, 5).map((track, index) => (
-            <TrackCard
-              key={track.id}
-              track={track}
-              variant="row"
-              index={index + 1}
-            />
-          ))}
-        </div>
-      </section>
+      {artist.topTracks.length > 0 && (
+        <section className="px-6 mb-8">
+          <h2 className="text-2xl font-bold mb-4">Popular</h2>
+          <div className="space-y-1">
+            {artist.topTracks.slice(0, 5).map((track, index) => (
+              <TrackCard
+                key={track.id}
+                track={track}
+                variant="row"
+                index={index + 1}
+              />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Albums */}
-      {artistAlbums.length > 0 && (
+      {artist.albums.length > 0 && (
         <section className="px-6 mb-8">
-          <h2 className="text-2xl font-bold mb-4">Albums</h2>
+          <h2 className="text-2xl font-bold mb-4">Discography</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-            {artistAlbums.map((album) => (
+            {artist.albums.map((album) => (
               <div
                 key={album.id}
                 className="p-4 bg-card rounded-lg transition-all duration-300 hover:bg-hover-highlight group card-hover cursor-pointer"
@@ -146,16 +168,6 @@ const ArtistPage: React.FC = () => {
           </div>
         </section>
       )}
-
-      {/* Fans Also Like */}
-      <section className="px-6 mb-8">
-        <h2 className="text-2xl font-bold mb-4">Fans also like</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-          {otherArtists.map((otherArtist) => (
-            <ArtistCard key={otherArtist.id} artist={otherArtist} />
-          ))}
-        </div>
-      </section>
     </div>
   );
 };

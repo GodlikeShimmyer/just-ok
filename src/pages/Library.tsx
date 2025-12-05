@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, List, LayoutGrid, Search, ChevronDown, Heart } from 'lucide-react';
+import { List, LayoutGrid, Search, ChevronDown, Heart } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { mockPlaylists, mockArtists, mockAlbums } from '@/data/mockData';
+import { useFeaturedPlaylists, useNewReleases, useRecommendations } from '@/hooks/useSpotify';
 import PlaylistCard from '@/components/epstify/PlaylistCard';
-import ArtistCard from '@/components/epstify/ArtistCard';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,8 +12,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-type FilterType = 'playlists' | 'artists' | 'albums';
-type SortType = 'recent' | 'added' | 'alphabetical' | 'creator';
+type FilterType = 'playlists' | 'albums' | 'tracks';
+type SortType = 'recent' | 'added' | 'alphabetical';
 type ViewType = 'grid' | 'list';
 
 const Library: React.FC = () => {
@@ -23,34 +23,43 @@ const Library: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
 
+  const { data: playlists, isLoading: loadingPlaylists } = useFeaturedPlaylists();
+  const { data: albums, isLoading: loadingAlbums } = useNewReleases();
+  const { data: tracks, isLoading: loadingTracks } = useRecommendations();
+
   const filters: { id: FilterType; label: string }[] = [
     { id: 'playlists', label: 'Playlists' },
-    { id: 'artists', label: 'Artists' },
     { id: 'albums', label: 'Albums' },
+    { id: 'tracks', label: 'Tracks' },
   ];
 
   const sortOptions: { id: SortType; label: string }[] = [
     { id: 'recent', label: 'Recently played' },
     { id: 'added', label: 'Recently added' },
     { id: 'alphabetical', label: 'Alphabetical' },
-    { id: 'creator', label: 'Creator' },
   ];
 
   const toggleFilter = (filter: FilterType) => {
     setActiveFilter(activeFilter === filter ? null : filter);
   };
 
+  const LoadingSkeleton = ({ count = 6 }: { count?: number }) => (
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} className="p-4 bg-card rounded-lg">
+          <Skeleton className="w-full aspect-square rounded-md mb-4" />
+          <Skeleton className="h-4 w-3/4 mb-2" />
+          <Skeleton className="h-3 w-1/2" />
+        </div>
+      ))}
+    </div>
+  );
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Your Library</h1>
-        <Link
-          to="/playlist/new"
-          className="w-8 h-8 rounded-full hover:bg-hover-highlight flex items-center justify-center transition-colors"
-        >
-          <Plus className="w-5 h-5" />
-        </Link>
+        <h1 className="text-2xl font-bold">Browse Library</h1>
       </div>
 
       {/* Filter Pills */}
@@ -83,7 +92,7 @@ const Library: React.FC = () => {
           {showSearch && (
             <input
               type="text"
-              placeholder="Search in Your Library"
+              placeholder="Search in library"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="bg-transparent border-b border-muted-foreground focus:border-foreground outline-none text-sm py-1 px-2 w-48 transition-colors"
@@ -143,10 +152,12 @@ const Library: React.FC = () => {
       {(activeFilter === null || activeFilter === 'playlists') && (
         <section>
           {activeFilter !== 'playlists' && (
-            <h2 className="text-lg font-semibold mb-4">Playlists</h2>
+            <h2 className="text-lg font-semibold mb-4">Featured Playlists</h2>
           )}
           
-          {viewType === 'grid' ? (
+          {loadingPlaylists ? (
+            <LoadingSkeleton />
+          ) : viewType === 'grid' ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
               {/* Liked Songs Card */}
               <Link
@@ -165,11 +176,11 @@ const Library: React.FC = () => {
                 </div>
                 <h3 className="font-semibold truncate mb-1">Liked Songs</h3>
                 <p className="text-sm text-foreground/80 truncate">
-                  {mockPlaylists[0].tracks.length} songs
+                  Your favorites
                 </p>
               </Link>
 
-              {mockPlaylists.slice(1).map((playlist) => (
+              {playlists?.map((playlist) => (
                 <PlaylistCard key={playlist.id} playlist={playlist} />
               ))}
             </div>
@@ -185,11 +196,11 @@ const Library: React.FC = () => {
                 <div>
                   <p className="font-medium">Liked Songs</p>
                   <p className="text-sm text-muted-foreground">
-                    Playlist • {mockPlaylists[0].tracks.length} songs
+                    Playlist • Your favorites
                   </p>
                 </div>
               </Link>
-              {mockPlaylists.slice(1).map((playlist) => (
+              {playlists?.map((playlist) => (
                 <Link
                   key={playlist.id}
                   to={`/playlist/${playlist.id}`}
@@ -213,94 +224,121 @@ const Library: React.FC = () => {
         </section>
       )}
 
-      {(activeFilter === null || activeFilter === 'artists') && (
-        <section>
-          {activeFilter !== 'artists' && (
-            <h2 className="text-lg font-semibold mb-4">Artists</h2>
-          )}
-          <div className={cn(
-            viewType === 'grid'
-              ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4'
-              : 'space-y-2'
-          )}>
-            {mockArtists.map((artist) =>
-              viewType === 'grid' ? (
-                <ArtistCard key={artist.id} artist={artist} />
-              ) : (
-                <Link
-                  key={artist.id}
-                  to={`/artist/${artist.id}`}
-                  className="flex items-center gap-3 p-2 rounded-md hover:bg-hover-highlight transition-colors"
-                >
-                  <img
-                    src={artist.imageUrl}
-                    alt={artist.name}
-                    className="w-12 h-12 rounded-full object-cover"
-                  />
-                  <div>
-                    <p className="font-medium">{artist.name}</p>
-                    <p className="text-sm text-muted-foreground">Artist</p>
-                  </div>
-                </Link>
-              )
-            )}
-          </div>
-        </section>
-      )}
-
       {(activeFilter === null || activeFilter === 'albums') && (
         <section>
           {activeFilter !== 'albums' && (
-            <h2 className="text-lg font-semibold mb-4">Albums</h2>
+            <h2 className="text-lg font-semibold mb-4">New Releases</h2>
           )}
-          <div className={cn(
-            viewType === 'grid'
-              ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4'
-              : 'space-y-2'
-          )}>
-            {mockAlbums.map((album) =>
-              viewType === 'grid' ? (
-                <div
-                  key={album.id}
-                  className="p-4 bg-card rounded-lg transition-all duration-300 hover:bg-hover-highlight group card-hover cursor-pointer"
-                >
-                  <div className="relative mb-4">
+          {loadingAlbums ? (
+            <LoadingSkeleton />
+          ) : (
+            <div className={cn(
+              viewType === 'grid'
+                ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4'
+                : 'space-y-2'
+            )}>
+              {albums?.map((album) =>
+                viewType === 'grid' ? (
+                  <div
+                    key={album.id}
+                    className="p-4 bg-card rounded-lg transition-all duration-300 hover:bg-hover-highlight group card-hover cursor-pointer"
+                  >
+                    <div className="relative mb-4">
+                      <img
+                        src={album.coverUrl}
+                        alt={album.name}
+                        className="w-full aspect-square object-cover rounded-md shadow-lg"
+                      />
+                      <button className="play-button-overlay shadow-xl">
+                        <svg className="w-6 h-6 text-accent-foreground fill-current ml-1" viewBox="0 0 24 24">
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                      </button>
+                    </div>
+                    <h3 className="font-semibold truncate mb-1">{album.name}</h3>
+                    <p className="text-sm text-muted-foreground truncate">
+                      {album.releaseYear} • {album.artist}
+                    </p>
+                  </div>
+                ) : (
+                  <div
+                    key={album.id}
+                    className="flex items-center gap-3 p-2 rounded-md hover:bg-hover-highlight transition-colors cursor-pointer"
+                  >
                     <img
                       src={album.coverUrl}
                       alt={album.name}
-                      className="w-full aspect-square object-cover rounded-md shadow-lg"
+                      className="w-12 h-12 rounded object-cover"
                     />
-                    <button className="play-button-overlay shadow-xl">
-                      <svg className="w-6 h-6 text-accent-foreground fill-current ml-1" viewBox="0 0 24 24">
-                        <path d="M8 5v14l11-7z" />
-                      </svg>
-                    </button>
+                    <div>
+                      <p className="font-medium">{album.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        Album • {album.artist}
+                      </p>
+                    </div>
                   </div>
-                  <h3 className="font-semibold truncate mb-1">{album.name}</h3>
-                  <p className="text-sm text-muted-foreground truncate">
-                    {album.releaseYear} • {album.artist}
-                  </p>
-                </div>
-              ) : (
-                <div
-                  key={album.id}
-                  className="flex items-center gap-3 p-2 rounded-md hover:bg-hover-highlight transition-colors cursor-pointer"
-                >
-                  <img
-                    src={album.coverUrl}
-                    alt={album.name}
-                    className="w-12 h-12 rounded object-cover"
-                  />
-                  <div>
-                    <p className="font-medium">{album.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      Album • {album.artist}
-                    </p>
+                )
+              )}
+            </div>
+          )}
+        </section>
+      )}
+
+      {(activeFilter === null || activeFilter === 'tracks') && (
+        <section>
+          {activeFilter !== 'tracks' && (
+            <h2 className="text-lg font-semibold mb-4">Recommended Tracks</h2>
+          )}
+          {loadingTracks ? (
+            <LoadingSkeleton />
+          ) : (
+            <div className={cn(
+              viewType === 'grid'
+                ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4'
+                : 'space-y-2'
+            )}>
+              {tracks?.map((track) =>
+                viewType === 'grid' ? (
+                  <div
+                    key={track.id}
+                    className="p-4 bg-card rounded-lg transition-all duration-300 hover:bg-hover-highlight group card-hover cursor-pointer"
+                  >
+                    <div className="relative mb-4">
+                      <img
+                        src={track.coverUrl}
+                        alt={track.title}
+                        className="w-full aspect-square object-cover rounded-md shadow-lg"
+                      />
+                      <button className="play-button-overlay shadow-xl">
+                        <svg className="w-6 h-6 text-accent-foreground fill-current ml-1" viewBox="0 0 24 24">
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                      </button>
+                    </div>
+                    <h3 className="font-semibold truncate mb-1">{track.title}</h3>
+                    <p className="text-sm text-muted-foreground truncate">{track.artist}</p>
                   </div>
-                </div>
-              )
-            )}
-          </div>
+                ) : (
+                  <div
+                    key={track.id}
+                    className="flex items-center gap-3 p-2 rounded-md hover:bg-hover-highlight transition-colors cursor-pointer"
+                  >
+                    <img
+                      src={track.coverUrl}
+                      alt={track.title}
+                      className="w-12 h-12 rounded object-cover"
+                    />
+                    <div>
+                      <p className="font-medium">{track.title}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {track.artist}
+                      </p>
+                    </div>
+                  </div>
+                )
+              )}
+            </div>
+          )}
         </section>
       )}
     </div>
