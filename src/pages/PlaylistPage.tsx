@@ -4,16 +4,16 @@ import {
   Play, 
   Pause, 
   Shuffle, 
-  Heart, 
   MoreHorizontal, 
   Clock,
   Download,
   Search
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { mockPlaylists } from '@/data/mockData';
+import { usePlaylist } from '@/hooks/useSpotify';
 import { usePlayer } from '@/contexts/PlayerContext';
 import TrackCard from '@/components/epstify/TrackCard';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,9 +29,30 @@ const PlaylistPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
 
-  const playlist = mockPlaylists.find((p) => p.id === id);
+  const { data: playlist, isLoading, error } = usePlaylist(id);
 
-  if (!playlist) {
+  if (isLoading) {
+    return (
+      <div className="animate-fade-in">
+        <div className="flex items-end gap-6 mb-8">
+          <Skeleton className="w-56 h-56 rounded-lg" />
+          <div className="flex-1">
+            <Skeleton className="h-4 w-20 mb-2" />
+            <Skeleton className="h-16 w-3/4 mb-6" />
+            <Skeleton className="h-4 w-1/2 mb-2" />
+            <Skeleton className="h-4 w-1/3" />
+          </div>
+        </div>
+        <div className="space-y-2">
+          {Array.from({ length: 10 }).map((_, i) => (
+            <Skeleton key={i} className="h-14 w-full" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !playlist) {
     return (
       <div className="flex items-center justify-center h-64">
         <p className="text-muted-foreground">Playlist not found</p>
@@ -79,7 +100,8 @@ const PlaylistPage: React.FC = () => {
           <p className="text-sm font-medium uppercase tracking-wider mb-2">Playlist</p>
           <h1 className="text-6xl font-black mb-6 line-clamp-1">{playlist.name}</h1>
           {playlist.description && (
-            <p className="text-muted-foreground mb-2">{playlist.description}</p>
+            <p className="text-muted-foreground mb-2 line-clamp-2" 
+               dangerouslySetInnerHTML={{ __html: playlist.description }} />
           )}
           <div className="flex items-center gap-1 text-sm">
             <span className="font-semibold">{playlist.owner}</span>
@@ -136,13 +158,6 @@ const PlaylistPage: React.FC = () => {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-48 bg-card border-border">
             <DropdownMenuItem className="cursor-pointer">
-              Edit details
-            </DropdownMenuItem>
-            <DropdownMenuItem className="cursor-pointer">
-              Delete
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="cursor-pointer">
               Share
             </DropdownMenuItem>
             <DropdownMenuItem className="cursor-pointer">
@@ -185,7 +200,7 @@ const PlaylistPage: React.FC = () => {
       <div className="space-y-1">
         {filteredTracks.map((track, index) => (
           <TrackCard
-            key={track.id}
+            key={`${track.id}-${index}`}
             track={track}
             variant="row"
             index={index + 1}
